@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="OutSystems.ExternalLibraries.SDK" Version="1.5.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="confusables.txt" />
+    <None Remove="resources\UnicodeSpoofGuard.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="confusables.txt" />
+    <EmbeddedResource Include="resources\UnicodeSpoofGuard.png" />
+  </ItemGroup>
+
+</Project>
