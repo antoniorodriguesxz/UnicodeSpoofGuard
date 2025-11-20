@@ -32,8 +32,8 @@ internal static class ConfusablesUpdateService
                 IsSuccess = true,
                 Message = "Confusables dataset refreshed successfully.",
                 SourceVersion = dataset.SourceVersion,
-                SourceDate = dataset.SourceDate,
-                RetrievedAt = dataset.RetrievedAt,
+                SourceDate = dataset.SourceDate.DateTime,
+                RetrievedAt = dataset.RetrievedAt.DateTime,
                 EntryCount = dataset.Entries.Count
             };
         }

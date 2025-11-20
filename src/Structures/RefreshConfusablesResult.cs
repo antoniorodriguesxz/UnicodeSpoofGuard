@@ -16,10 +16,10 @@ public struct RefreshConfusablesResult
     public string? SourceVersion;
 
     [OSStructureField(Description = "Original publication date reported by the dataset.", IsMandatory = false)]
-    public DateTimeOffset? SourceDate;
+    public DateTime? SourceDate;
 
     [OSStructureField(Description = "Timestamp when the dataset was retrieved.", IsMandatory = false)]
-    public DateTimeOffset? RetrievedAt;
+    public DateTime? RetrievedAt;
 
     [OSStructureField(Description = "Number of confusable mappings made available after the refresh.", IsMandatory = false)]
     public int? EntryCount;
