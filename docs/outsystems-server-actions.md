@@ -89,7 +89,34 @@ Validates email-like input and returns an `AnalysisResult`.
    - Options: omitted (defaults suppress ASCII confusables)
    - Expected output: `IsSafe = true`, `Reason = ""`, `CanonicalValue = "help@google.com"`, `Findings = []`
 
-5. **Mixed-script local part rejected by default policy**
+5. **Cyrillic homoglyph attack - visually identical to real PayPal domain**
+   - Input: `"support@pаypal.com"` (Cyrillic 'а' U+0430 instead of Latin 'a' in 'paypal')
+   - Options: omitted
+   - Expected output:
+     - `IsSafe = false`
+     - `Reason = "The text contains characters from multiple scripts: Latin, Cyrillic."`
+     - `CanonicalValue = "support@paypal.com"`
+     - `Findings` contains one `MixedScript` entry and likely `Homoglyph` entries for the Cyrillic characters
+
+6. **Multi-character Cyrillic substitution - Google phishing**
+   - Input: `"security@gооgle.com"` (both 'o' characters are Cyrillic 'о' U+043E)
+   - Options: omitted
+   - Expected output:
+     - `IsSafe = false`
+     - `Reason = "The text contains characters from multiple scripts: Latin, Cyrillic."`
+     - `CanonicalValue = "security@google.com"`
+     - `Findings` contains `MixedScript` and `Homoglyph` entries for positions 10 and 11
+
+7. **Apple account takeover attempt**
+   - Input: `"noreply@аpple.com"` (Cyrillic 'а' U+0430 at start of 'apple')
+   - Options: omitted
+   - Expected output:
+     - `IsSafe = false`
+     - `Reason = "The text contains characters from multiple scripts: Latin, Cyrillic."`
+     - `CanonicalValue = "noreply@apple.com"`
+     - `Findings` contains `MixedScript` and `Homoglyph` entries
+
+8. **Mixed-script rejected by default policy (obvious Greek characters)**
    - Input: `"alerts@παypal.com"` (Greek `π` + `α` in the domain)
    - Options: omitted
    - Expected output:
@@ -98,10 +125,55 @@ Validates email-like input and returns an `AnalysisResult`.
      - `CanonicalValue = "alerts@παypal.com"`
      - `Findings` contains one `MixedScript` entry covering the full string
 
-6. **Locale override allowing Greek + Latin mixture**
+9. **Locale override allowing Greek + Latin mixture**
    - Input: `"alerts@παypal.com"`
    - Options: `Locale = "el-GR"`
    - Expected output: `IsSafe = true`, `Reason = ""`, `CanonicalValue = "alerts@παypal.com"`, `Findings = []` because the `latin-greek` profile permits that script pair.
+
+10. **Amazon phishing with fullwidth digit**
+   - Input: `"billing@аmazon.com"` (Cyrillic 'а' U+0430 in 'amazon')
+   - Options: omitted
+   - Expected output:
+     - `IsSafe = false`
+     - `Reason = "The text contains characters from multiple scripts: Latin, Cyrillic."`
+     - `CanonicalValue = "billing@amazon.com"`
+     - `Findings` contains `MixedScript` and `Homoglyph` entries
+
+11. **Bidirectional override in the domain**
+   - Input: `"billing@\u202Eexample.com"`
+   - Options: omitted
+   - Expected output:
+     - `IsSafe = false`
+     - `Reason = "Invisible character of category 'Format' found at position 8."`
+     - `CanonicalValue = "billing@\u202Eexample.com"`
+     - `Findings` contains two entries: one `InvisibleCharacter` (`Position = 8`, `Substring = "\u202E"`), and one `BidirectionalControl` (`Position = 8`, `Substring = "\u202E"`)
+
+12. **Zero-width separator in the local part**
+   - Input: `"admin\u200Broot@example.com"`
+   - Options: omitted
+   - Expected output:
+     - `IsSafe = false`
+     - `Reason = "Invisible character of category 'Format' found at position 5."`
+     - `CanonicalValue = "admin\u200Broot@example.com"`
+     - `Findings` contains one `InvisibleCharacter` entry (`Position = 5`, `Substring = "\u200B"`)
+
+13. **Sophisticated multi-vector attack - homoglyph + invisible character**
+   - Input: `"support\u200B@pаypal.com"` (zero-width space after 'support' + Cyrillic 'а' in 'paypal')
+   - Options: omitted
+   - Expected output:
+     - `IsSafe = false`
+     - `Reason = "Invisible character of category 'Format' found at position 7."`
+     - `CanonicalValue = "support@paypal.com"`
+     - `Findings` includes `InvisibleCharacter` (`Position = 7`) and `MixedScript`/`Homoglyph` entries for the Cyrillic character
+
+14. **Combined zero-width and bidirectional controls**
+   - Input: `"admin\u200B@\u202Eexample.com"`
+   - Options: omitted
+   - Expected output:
+     - `IsSafe = false`
+     - `Reason = "Invisible character of category 'Format' found at position 5."`
+     - `CanonicalValue = "admin\u200B@\u202Eexample.com"`
+     - `Findings` includes two `InvisibleCharacter` entries (`Position = 5`, `Substring = "\u200B"` and `Position = 7`, `Substring = "\u202E"`), plus one `BidirectionalControl` entry (`Position = 7`, `Substring = "\u202E"`)
 
 ### `IsSafeDomain`
 
@@ -145,12 +217,48 @@ Assesses domains or hostnames.
      - `CanonicalValue = "helpdesk.google.com"`
      - `Findings` contains one `Homoglyph` entry (`Position = 11`, `Substring = "1"`)
 
-5. **Mixed scripts allowed by explicit profile**
+5. **Apple domain phishing - visually perfect**
+   - Input: `"аpple.com"` (Cyrillic 'а' U+0430 instead of Latin 'a')
+   - Options: omitted
+   - Expected output:
+     - `IsSafe = false`
+     - `Reason = "The text contains characters from multiple scripts: Latin, Cyrillic."`
+     - `CanonicalValue = "apple.com"`
+     - `Findings` contains `MixedScript` and `Homoglyph` entries
+
+6. **Microsoft phishing with fullwidth zero**
+   - Input: `"micros０ft.com"` (fullwidth digit zero U+FF10 instead of Latin 'o')
+   - Options: omitted
+   - Expected output:
+     - `IsSafe = false`
+     - `Reason = "Substring '０' at position 6 is a homoglyph of 'o'."`
+     - `CanonicalValue = "microsoft.com"`
+     - `Findings` contains `Homoglyph` entry at position 6
+
+7. **Facebook domain with Cyrillic 'a'**
+   - Input: `"fаcebook.com"` (Cyrillic 'а' U+0430)
+   - Options: omitted
+   - Expected output:
+     - `IsSafe = false`
+     - `Reason = "The text contains characters from multiple scripts: Latin, Cyrillic."`
+     - `CanonicalValue = "facebook.com"`
+     - `Findings` contains `MixedScript` and `Homoglyph` entries
+
+8. **Banking domain - chase.com with Cyrillic 'e'**
+   - Input: `"chasе.com"` (Cyrillic 'е' U+0435 instead of Latin 'e')
+   - Options: omitted
+   - Expected output:
+     - `IsSafe = false`
+     - `Reason = "The text contains characters from multiple scripts: Latin, Cyrillic."`
+     - `CanonicalValue = "chase.com"`
+     - `Findings` contains `MixedScript` and `Homoglyph` entries
+
+9. **Mixed scripts allowed by explicit profile**
    - Input: `"παypal.com"`
    - Options: `PolicyProfile = "latin-greek"`
    - Expected output: `IsSafe = true`, `Reason = ""`, `CanonicalValue = "παypal.com"`, `Findings = []`
 
-6. **Mixed scripts rejected without overrides**
+10. **Mixed scripts rejected without overrides (obvious Greek)**
    - Input: `"παypal.com"`
    - Options: omitted
    - Expected output:
@@ -158,6 +266,42 @@ Assesses domains or hostnames.
      - `Reason = "The text contains characters from multiple scripts: Latin, Greek."`
      - `CanonicalValue = "παypal.com"`
      - `Findings` contains one `MixedScript` entry covering the full domain
+
+11. **Bidirectional control embedded in the label**
+   - Input: `"secure\u202E.com"`
+   - Options: omitted
+   - Expected output:
+     - `IsSafe = false`
+     - `Reason = "Invisible character of category 'Format' found at position 6."`
+     - `CanonicalValue = "secure\u202E.com"`
+     - `Findings` contains two entries: one `InvisibleCharacter` (`Position = 6`, `Substring = "\u202E"`), and one `BidirectionalControl` (`Position = 6`, `Substring = "\u202E"`)
+
+12. **Zero-width joiner inside a label**
+   - Input: `"update\u200Balert.com"`
+   - Options: omitted
+   - Expected output:
+     - `IsSafe = false`
+     - `Reason = "Invisible character of category 'Format' found at position 6."`
+     - `CanonicalValue = "update\u200Balert.com"`
+     - `Findings` contains one `InvisibleCharacter` entry (`Position = 6`, `Substring = "\u200B"`)
+
+13. **Advanced attack - homoglyph domain + bidirectional control**
+   - Input: `"secure-pаypal\u202E.com"` (Cyrillic 'а' + RTL override)
+   - Options: omitted
+   - Expected output:
+     - `IsSafe = false`
+     - `Reason = "The text contains characters from multiple scripts: Latin, Cyrillic."` or `"Invisible character of category 'Format' found..."`
+     - `CanonicalValue = "secure-paypal.com"`
+     - `Findings` includes `MixedScript`, `Homoglyph`, `InvisibleCharacter`, and `BidirectionalControl` entries
+
+14. **Multiple hidden controls**
+   - Input: `"secure\u202Epay\u200Pal.com"`
+   - Options: omitted
+   - Expected output:
+     - `IsSafe = false`
+     - `Reason = "Invisible character of category 'Format' found at position 6."`
+     - `CanonicalValue = "secure\u202Epay\u200Pal.com"`
+     - `Findings` includes two `InvisibleCharacter` entries (`Position = 6`, `Substring = "\u202E"` and `Position = 10`, `Substring = "\u200B"`), plus one `BidirectionalControl` entry (`Position = 6`, `Substring = "\u202E"`)
 
 ### `IsSafeUsername`
 
@@ -175,7 +319,34 @@ Runs spoof analysis on usernames or IDs.
    - Options: omitted
    - Expected output: `IsSafe = true`, `Reason = ""`, `CanonicalValue = "customer42"`, `Findings = []`
 
-2. **Invisible separator detected**
+2. **Impersonation attack - admin with Cyrillic 'a'**
+   - Input: `"аdmin"` (Cyrillic 'а' U+0430 instead of Latin 'a')
+   - Options: omitted
+   - Expected output:
+     - `IsSafe = false`
+     - `Reason = "The text contains characters from multiple scripts: Latin, Cyrillic."`
+     - `CanonicalValue = "admin"`
+     - `Findings` contains `MixedScript` and `Homoglyph` entries
+
+3. **Support account impersonation with Cyrillic 'o'**
+   - Input: `"suppоrt"` (Cyrillic 'о' U+043E instead of Latin 'o')
+   - Options: omitted
+   - Expected output:
+     - `IsSafe = false`
+     - `Reason = "The text contains characters from multiple scripts: Latin, Cyrillic."`
+     - `CanonicalValue = "support"`
+     - `Findings` contains `MixedScript` and `Homoglyph` entries
+
+4. **Moderator impersonation with multiple Cyrillic characters**
+   - Input: `"mоderаtor"` (Cyrillic 'о' and 'а')
+   - Options: omitted
+   - Expected output:
+     - `IsSafe = false`
+     - `Reason = "The text contains characters from multiple scripts: Latin, Cyrillic."`
+     - `CanonicalValue = "moderator"`
+     - `Findings` contains `MixedScript` and multiple `Homoglyph` entries
+
+5. **Invisible separator detected**
    - Input: `"admin\u200Broot"` (zero-width space between `admin` and `root`)
    - Options: omitted
    - Expected output:
@@ -184,7 +355,16 @@ Runs spoof analysis on usernames or IDs.
      - `CanonicalValue = "admin\u200Broot"`
      - `Findings` has one `InvisibleCharacter` entry (`Position = 5`, `Substring = "\u200B"`)
 
-3. **ASCII homoglyph requiring strict mode**
+6. **Administrator with zero-width non-joiner**
+   - Input: `"administrаtor\u200C"` (Cyrillic 'а' + zero-width non-joiner at end)
+   - Options: omitted
+   - Expected output:
+     - `IsSafe = false`
+     - `Reason = "The text contains characters from multiple scripts: Latin, Cyrillic."` or `"Invisible character of category 'Format' found..."`
+     - `CanonicalValue = "administrator"`
+     - `Findings` contains `MixedScript`, `Homoglyph`, and `InvisibleCharacter` entries
+
+7. **ASCII homoglyph requiring strict mode**
    - Input: `"he1per"`
    - Options: `UseStrictMode = true`
    - Expected output:
@@ -193,12 +373,12 @@ Runs spoof analysis on usernames or IDs.
      - `CanonicalValue = "helper"`
      - `Findings` includes one `Homoglyph` entry (`Position = 2`, `Substring = "1"`)
 
-4. **Same input without strict mode**
+8. **Same input without strict mode**
    - Input: `"he1per"`
    - Options: omitted
    - Expected output: `IsSafe = true`, `Reason = ""`, `CanonicalValue = "helper"`, `Findings = []`
 
-5. **Threat intel username token**
+9. **Threat intel username token**
    - Input: `"g00gle-account.net"` (exact feed entry)
    - Options: omitted
    - Expected output:
@@ -207,7 +387,7 @@ Runs spoof analysis on usernames or IDs.
      - `CanonicalValue = "g00gle-account.net"`
      - `Findings` holds one `ThreatIntel` entry (`Position = 0`, `Substring = "g00gle-account.net"`)
 
-6. **Threat intel disabled**
+10. **Threat intel disabled**
    - Input: `"g00gle-account.net"`
    - Options: `DisableThreatIntel = true`
    - Expected output: `IsSafe = true`, `Reason = ""`, `CanonicalValue = "g00gle-account.net"`, `Findings = []`
@@ -262,25 +442,40 @@ Returns the raw list of findings without aggregating into an `AnalysisResult`.
    - Options: omitted
    - Output: `[{ FindingType = "ThreatIntel", Description = "Canonical token 'paypal-security-center.com' matches threat feed 'sample-typos'.", Position = 0, Substring = "paypal-security-center.com" }]`
 
-2. **Mixed scripts without overrides**
+2. **Cyrillic homoglyph attack on PayPal**
+   - Input: `"pаypal"` (Cyrillic 'а' U+0430)
+   - Options: omitted
+   - Output: `[{ FindingType = "MixedScript", Description = "The text contains characters from multiple scripts: Latin, Cyrillic.", Position = 0, Substring = "pаypal" }]` plus `Homoglyph` finding
+
+3. **Mixed scripts without overrides (obvious Greek)**
    - Input: `"παypal"`
    - Options: omitted
    - Output: `[{ FindingType = "MixedScript", Description = "The text contains characters from multiple scripts: Latin, Greek.", Position = 0, Substring = "παypal" }]`
 
-3. **Strict mode homoglyph detection**
+4. **Strict mode homoglyph detection**
    - Input: `"help@goog1e.com"`
    - Options: `UseStrictMode = true`
    - Output: `[{ FindingType = "Homoglyph", Description = "Substring '1' at position 9 is a homoglyph of 'l'.", Position = 9, Substring = "1" }]`
 
-4. **Threat intel disabled**
+5. **Combined attack - homoglyph + invisible character**
+   - Input: `"аdmin\u200Broot"` (Cyrillic 'а' + zero-width space)
+   - Options: omitted
+   - Output: Multiple findings including `MixedScript`, `Homoglyph` for Cyrillic 'а', and `InvisibleCharacter` for the zero-width space
+
+6. **Threat intel disabled**
    - Input: `"paypal-security-center.com"`
    - Options: `DisableThreatIntel = true`
    - Output: `[]`
 
-5. **Locale override allowing mixed scripts**
+7. **Locale override allowing mixed scripts**
    - Input: `"παypal"`
    - Options: `Locale = "el-GR"`
    - Output: `[]`
+
+8. **Real-world banking phishing - Wells Fargo**
+   - Input: `"wеllsfargo.com"` (Cyrillic 'е' U+0435 instead of Latin 'e')
+   - Options: omitted
+   - Output: `[{ FindingType = "MixedScript", Description = "The text contains characters from multiple scripts: Latin, Cyrillic.", Position = 0, Substring = "wеllsfargo.com" }]` plus `Homoglyph` finding
 
 ### `RefreshConfusablesData`
 
