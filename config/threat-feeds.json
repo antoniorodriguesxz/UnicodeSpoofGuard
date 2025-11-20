@@ -1,0 +1,25 @@
+{
+  "feeds": [
+    {
+      "id": "sample-phishing",
+      "description": "Sample phishing domains used for regression coverage.",
+      "type": "http",
+      "uri": "https://threats.example.com/phishing-domains.json",
+      "format": "json-array",
+      "indicatorType": "domain",
+      "ttlMinutes": 1440,
+      "enabled": true
+    },
+    {
+      "id": "sample-typos",
+      "description": "Hand-curated typo-squatted domains maintained internally.",
+      "type": "file",
+      "uri": "data/threat_feeds/typos.txt",
+      "format": "plain-text",
+      "indicatorType": "domain",
+      "ttlMinutes": 10080,
+      "enabled": true
+    }
+  ]
+}
+

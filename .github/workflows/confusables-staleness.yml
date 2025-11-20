@@ -1,0 +1,25 @@
+name: Confusables Freshness
+
+on:
+  pull_request:
+  schedule:
+    - cron: "0 3 * * 1" # Mondays at 03:00 UTC
+
+jobs:
+  check-confusables:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore tools
+        run: dotnet restore
+
+      - name: Validate bundled dataset
+        run: dotnet run --project tools/UpdateConfusables -- --check
+

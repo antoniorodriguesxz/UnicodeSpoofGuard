@@ -11,13 +11,27 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Remove="confusables.txt" />
     <None Remove="resources\UnicodeSpoofGuard.png" />
+    <None Remove="..\data\confusables.json" />
+    <None Remove="..\data\ascii_homoglyphs.json" />
+    <None Remove="..\config\detection.json" />
+    <None Remove="..\config\policies.json" />
+    <None Remove="..\config\threat-feeds.json" />
+    <None Remove="..\data\threat_indicators.json" />
+    <None Remove="..\data\threat_feeds\typos.txt" />
+    <None Remove="..\data\confusables.bin" />
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="confusables.txt" />
     <EmbeddedResource Include="resources\UnicodeSpoofGuard.png" />
+    <EmbeddedResource Include="..\data\confusables.json" Link="data\confusables.json" />
+    <EmbeddedResource Include="..\data\ascii_homoglyphs.json" Link="data\ascii_homoglyphs.json" />
+    <EmbeddedResource Include="..\config\detection.json" Link="config\detection.json" />
+    <EmbeddedResource Include="..\config\policies.json" Link="config\policies.json" />
+    <EmbeddedResource Include="..\config\threat-feeds.json" Link="config\threat-feeds.json" />
+    <EmbeddedResource Include="..\data\threat_indicators.json" Link="data\threat_indicators.json" />
+    <EmbeddedResource Include="..\data\threat_feeds\typos.txt" Link="data\threat_feeds\typos.txt" />
+    <EmbeddedResource Include="..\data\confusables.bin" Link="data\confusables.bin" />
   </ItemGroup>
 
 </Project>

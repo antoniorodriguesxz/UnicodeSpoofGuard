@@ -1,0 +1,44 @@
+{
+  "generatedAt": "2025-11-15T00:00:00Z",
+  "feeds": [
+    {
+      "id": "sample-typos",
+      "retrievedAt": "2025-11-14T20:00:00Z",
+      "ttlMinutes": 10080,
+      "indicators": [
+        {
+          "value": "paypal-security-center.com",
+          "type": "domain",
+          "source": "sample-typos",
+          "expiresAt": "2025-11-21T20:00:00Z"
+        },
+        {
+          "value": "microsofit-support.com",
+          "type": "domain",
+          "source": "sample-typos",
+          "expiresAt": "2025-11-21T20:00:00Z"
+        },
+        {
+          "value": "g00gle-account.net",
+          "type": "domain",
+          "source": "sample-typos",
+          "expiresAt": "2025-11-21T20:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "sample-phishing",
+      "retrievedAt": "2025-11-14T22:15:00Z",
+      "ttlMinutes": 1440,
+      "indicators": [
+        {
+          "value": "paypal-verification-team.net",
+          "type": "domain",
+          "source": "sample-phishing",
+          "expiresAt": "2025-11-15T22:15:00Z"
+        }
+      ]
+    }
+  ]
+}
+

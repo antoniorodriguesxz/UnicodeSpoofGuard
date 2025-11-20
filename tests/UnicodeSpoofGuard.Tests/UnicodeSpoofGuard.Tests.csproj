@@ -24,4 +24,10 @@
     <ProjectReference Include="..\..\src\UnicodeSpoofGuard.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="Fixtures\spoof_cases.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

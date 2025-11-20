@@ -1,0 +1,10 @@
+{
+  "mappings": [
+    { "source": "rn", "target": "m", "category": "Ligature" },
+    { "source": "cl", "target": "d", "category": "Ligature" },
+    { "source": "vv", "target": "w", "category": "Ligature" },
+    { "source": "1", "target": "l", "category": "SimilarShape" },
+    { "source": "0", "target": "o", "category": "SimilarShape" }
+  ]
+}
+

@@ -3,54 +3,130 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
+using UnicodeSpoofGuard.Data;
+using UnicodeSpoofGuard.Feeds;
 using UnicodeSpoofGuard.Structures;
 
 namespace UnicodeSpoofGuard.Detection
 {
     public class SpoofDetector
     {
-        private static readonly Lazy<Dictionary<string, string>> AllConfusablesMap =
-            new Lazy<Dictionary<string, string>>(ConfusablesParser.GetAllConfusables);
-        
-        private static readonly Lazy<Dictionary<string, string>> SingleCharCanonicalMap =
-            new Lazy<Dictionary<string, string>>(ConfusablesParser.GetSingleCharCanonicalMap);
-        
-        private static readonly HashSet<char> BidirectionalControlChars = new HashSet<char>
+        private static readonly HashSet<char> BidirectionalControlChars = new()
         {
             '\u202A', '\u202B', '\u202C', '\u202D', '\u202E', '\u2066', '\u2067', '\u2068', '\u2069'
         };
 
+        private readonly DetectionConfig _config;
+        private readonly SpoofGuardOptions _options;
+        private readonly PolicyConfig _policyConfig;
+        private readonly ThreatIndicatorStore _threatStore;
+        private readonly ConfusablesIndex? _customIndex;
+
+        public SpoofDetector()
+            : this(null, DetectionConfigLoader.Config, PolicyConfigLoader.Config, SpoofGuardOptions.Default, ThreatIndicatorStore.Instance)
+        {
+        }
+
+        public SpoofDetector(SpoofGuardOptions options)
+            : this(null, DetectionConfigLoader.Config, PolicyConfigLoader.Config, options, ThreatIndicatorStore.Instance)
+        {
+        }
+
+        internal SpoofDetector(
+            DetectionConfig config,
+            PolicyConfig policyConfig,
+            SpoofGuardOptions options,
+            ThreatIndicatorStore? threatStore = null)
+            : this(null, config, policyConfig, options, threatStore)
+        {
+        }
+
+        internal SpoofDetector(
+            ConfusablesIndex? confusablesIndex,
+            DetectionConfig config,
+            PolicyConfig policyConfig,
+            SpoofGuardOptions options,
+            ThreatIndicatorStore? threatStore = null)
+        {
+            _customIndex = confusablesIndex;
+            _config = config;
+            _policyConfig = policyConfig;
+            _options = options;
+            _threatStore = threatStore ?? ThreatIndicatorStore.Instance;
+        }
+
         public List<DetailedFinding> Analyze(string text)
         {
             var findings = new List<DetailedFinding>();
-            
-            DetectHomoglyphs(text, findings);
-            DetectMixedScripts(text, findings);
+            var confusablesIndex = _customIndex ?? ConfusablesIndex.Instance;
+            string? canonicalText = null;
+
+            var profile = _config.GetProfile(_options.StrictMode);
+            var policyProfile = _policyConfig.Resolve(_options.PolicyProfile, _options.Locale);
+
+            DetectHomoglyphs(text, confusablesIndex, profile, findings);
+            DetectMixedScripts(text, policyProfile, findings);
             DetectInvisibleCharacters(text, findings);
             DetectBidirectionalControlCharacters(text, findings);
+
+            if (_options.EnableThreatIntel)
+            {
+                canonicalText ??= Canonicalizer.ToCanonical(text);
+                DetectThreatIndicators(text, canonicalText, findings);
+            }
 
             return findings.OrderBy(f => f.Position).ToList();
         }
 
-        private void DetectHomoglyphs(string text, List<DetailedFinding> findings)
+        private void DetectHomoglyphs(string text, ConfusablesIndex confusablesIndex, DetectionProfile profile, List<DetailedFinding> findings)
         {
-            for (int i = 0; i < text.Length; i++)
+            int i = 0;
+            int maxSequence = Math.Max(1, confusablesIndex.MaxSequenceLength);
+
+            while (i < text.Length)
             {
-                var c = text.Substring(i, 1);
-                if (AllConfusablesMap.Value.TryGetValue(c, out var canonicalChar))
+                var remaining = text.Length - i;
+                var limit = Math.Min(maxSequence, remaining);
+                ConfusableMapping mapping = default;
+                int matchedLength = 0;
+
+                for (int length = limit; length >= 1; length--)
                 {
+                    var segment = text.Substring(i, length);
+                    if (length > 1)
+                    {
+                        var map = confusablesIndex.GetMultiCharMappings(length);
+                        if (map.Count == 0 || !map.TryGetValue(segment, out mapping))
+                        {
+                            continue;
+                        }
+                    }
+                    else if (!confusablesIndex.TryGetSingleCharMapping(segment, out mapping))
+                    {
+                        continue;
+                    }
+
+                    matchedLength = length;
+                    break;
+                }
+
+                if (matchedLength > 0 && ShouldFlag(mapping, profile, out _))
+                {
+                    var substring = text.Substring(i, matchedLength);
                     findings.Add(new DetailedFinding
                     {
                         FindingType = "Homoglyph",
-                        Description = $"Character '{c}' at position {i} is a homoglyph of '{canonicalChar}'.",
+                        Description = $"Substring '{substring}' at position {i} is a homoglyph of '{mapping.Target}'.",
                         Position = i,
-                        Substring = c
+                        Substring = substring
                     });
                 }
+
+                i += matchedLength > 0 ? matchedLength : 1;
             }
         }
 
-        private void DetectMixedScripts(string text, List<DetailedFinding> findings)
+        private void DetectMixedScripts(string text, PolicyProfile policyProfile, List<DetailedFinding> findings)
         {
             var scripts = new HashSet<string>();
             for (int i = 0; i < text.Length; i++)
@@ -72,7 +148,7 @@ namespace UnicodeSpoofGuard.Detection
                 }
             }
 
-            if (scripts.Count > 1)
+            if (scripts.Count > 1 && !policyProfile.IsMixedScriptAllowed(scripts))
             {
                 findings.Add(new DetailedFinding
                 {
@@ -122,27 +198,82 @@ namespace UnicodeSpoofGuard.Detection
             }
         }
 
-        public static string GetCanonicalString(string text)
+        private void DetectThreatIndicators(string rawText, string canonicalText, List<DetailedFinding> findings)
         {
-            if (string.IsNullOrWhiteSpace(text))
+            if (!_options.EnableThreatIntel)
             {
-                return text;
+                return;
             }
 
-            var result = new StringBuilder();
-            for (int i = 0; i < text.Length; i++)
+            foreach (var (token, indicator) in _threatStore.FindMatches(canonicalText))
             {
-                var c = text.Substring(i, 1);
-                if (SingleCharCanonicalMap.Value.TryGetValue(c, out var canonical))
+                var position = FindApproximatePosition(rawText, token);
+                var substring = position >= 0 && position < rawText.Length
+                    ? rawText.Substring(position, Math.Min(token.Length, rawText.Length - position))
+                    : token;
+
+                findings.Add(new DetailedFinding
                 {
-                    result.Append(canonical);
-                }
-                else
-                {
-                    result.Append(c);
-                }
+                    FindingType = "ThreatIntel",
+                    Description = $"Canonical token '{token}' matches threat feed '{indicator.Source}'.",
+                    Position = Math.Max(position, 0),
+                    Substring = substring
+                });
             }
-            return result.ToString();
+        }
+
+        private static int FindApproximatePosition(string text, string token)
+        {
+            if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(token))
+            {
+                return 0;
+            }
+
+            var index = text.IndexOf(token, StringComparison.OrdinalIgnoreCase);
+            if (index >= 0)
+            {
+                return index;
+            }
+
+            var normalizedToken = token
+                .Replace('0', 'o')
+                .Replace('1', 'l');
+
+            index = text.IndexOf(normalizedToken, StringComparison.OrdinalIgnoreCase);
+            return index >= 0 ? index : 0;
+        }
+
+        public static string GetCanonicalString(string text)
+        {
+            return Canonicalizer.ToCanonical(text);
+        }
+
+        private static bool ShouldFlag(ConfusableMapping mapping, DetectionProfile profile, out double score)
+        {
+            score = 1.0;
+
+            if (mapping.IsIdentical)
+            {
+                if (profile.SuppressIdenticalMappings)
+                {
+                    score = 0;
+                    return false;
+                }
+                score = Math.Min(score, 0.2);
+            }
+
+            if (mapping.IsAsciiPair)
+            {
+                if (profile.SuppressAsciiConfusables)
+                {
+                    score = 0;
+                    return false;
+                }
+                score = Math.Min(score, 0.4);
+            }
+
+            var threshold = profile.GetThreshold(mapping.Type);
+            return score >= threshold;
         }
     }
 }
