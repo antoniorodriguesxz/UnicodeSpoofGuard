@@ -1,0 +1,39 @@
+{
+  "defaultProfile": "global",
+  "profiles": {
+    "global": {
+      "displayName": "Global Baseline",
+      "allowedMixedScripts": []
+    },
+    "latin-greek": {
+      "displayName": "Latin + Greek Mixed Script",
+      "locales": [
+        "el",
+        "el-gr",
+        "el_CY"
+      ],
+      "allowedMixedScripts": [
+        [
+          "Latin",
+          "Greek"
+        ]
+      ]
+    },
+    "latin-cyrillic": {
+      "displayName": "Latin + Cyrillic Mixed Script",
+      "locales": [
+        "sr",
+        "sr-rs",
+        "sr_latn",
+        "bs"
+      ],
+      "allowedMixedScripts": [
+        [
+          "Latin",
+          "Cyrillic"
+        ]
+      ]
+    }
+  }
+}
+

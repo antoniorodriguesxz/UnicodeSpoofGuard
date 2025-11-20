@@ -1,0 +1,20 @@
+{
+  "canonicalizationCases": [
+    {
+      "description": "ASCII ligature rn collapses to m",
+      "input": "burn",
+      "expected": "bum"
+    },
+    {
+      "description": "ASCII ligature vv collapses to w",
+      "input": "revvv",
+      "expected": "rewv"
+    },
+    {
+      "description": "Single homoglyph canonicalizes to ASCII target",
+      "input": "раypal",
+      "expected": "paypal"
+    }
+  ]
+}
+

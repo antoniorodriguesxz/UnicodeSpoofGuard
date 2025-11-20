@@ -1,3 +1,4 @@
+using UnicodeSpoofGuard;
 using UnicodeSpoofGuard.Detection;
 using Xunit;
 
@@ -49,5 +50,23 @@ public class SpoofDetectorTests
     {
         var findings = _detector.Analyze("clean text");
         Assert.Empty(findings);
+    }
+
+    [Fact]
+    public void Analyze_ShouldDetectThreatIntelIndicators()
+    {
+        var detector = new SpoofDetector(new SpoofGuardOptions { StrictMode = true });
+        var findings = detector.Analyze("Please visit paypal-security-center.com for details.");
+
+        Assert.Contains(findings, f => f.FindingType == "ThreatIntel");
+    }
+
+    [Fact]
+    public void Analyze_ShouldSkipThreatIntelWhenDisabled()
+    {
+        var detector = new SpoofDetector(new SpoofGuardOptions { EnableThreatIntel = false });
+        var findings = detector.Analyze("Please visit paypal-security-center.com for details.");
+
+        Assert.DoesNotContain(findings, f => f.FindingType == "ThreatIntel");
     }
 }

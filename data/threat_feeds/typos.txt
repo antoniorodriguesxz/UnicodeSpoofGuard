@@ -1,0 +1,5 @@
+# Sample typo-squatted domains for testing the threat feed pipeline.
+paypal-security-center.com
+microsofit-support.com
+g00gle-account.net
+
